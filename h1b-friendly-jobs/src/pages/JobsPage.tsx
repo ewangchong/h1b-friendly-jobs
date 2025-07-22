@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Filter, MapPin, DollarSign, Building2, X } from 'lucide-react'
+import { Search, Filter, MapPin, DollarSign, Building2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase, Job } from '../lib/supabase'
 import { Button } from '../components/ui/button'
 import JobCard from '../components/JobCard'
@@ -19,9 +19,12 @@ interface SearchFilters {
   salaryMax: string
 }
 
+const JOBS_PER_PAGE = 20
+
 export default function JobsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showFilters, setShowFilters] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [filters, setFilters] = useState<SearchFilters>({
     query: searchParams.get('q') || '',
     location: searchParams.get('location') || '',
@@ -52,8 +55,63 @@ export default function JobsPage() {
     setSearchParams(params)
   }, [filters, setSearchParams])
 
+  // Get total count for pagination
+  const { data: totalJobsData } = useQuery({
+    queryKey: ['jobs-count', JSON.stringify(filters)],
+    queryFn: async () => {
+      let query = supabase
+        .from('jobs')
+        .select('id', { count: 'exact' })
+        .eq('is_active', true)
+      
+      // Apply same filters for count
+      if (filters.query) {
+        query = query.or(`title.ilike.%${filters.query}%,description.ilike.%${filters.query}%,company_name.ilike.%${filters.query}%`)
+      }
+      
+      if (filters.location) {
+        query = query.or(`location.ilike.%${filters.location}%,city.ilike.%${filters.location}%,state.ilike.%${filters.location}%`)
+      }
+      
+      if (filters.h1bSponsorship) {
+        query = query.eq('h1b_sponsorship_available', true)
+      }
+      
+      if (filters.experienceLevel.length > 0) {
+        query = query.in('experience_level', filters.experienceLevel)
+      }
+      
+      if (filters.industry.length > 0) {
+        query = query.in('industry', filters.industry)
+      }
+      
+      if (filters.jobType.length > 0) {
+        query = query.in('job_type', filters.jobType)
+      }
+      
+      if (filters.remoteWork) {
+        query = query.eq('remote_friendly', true)
+      }
+      
+      if (filters.salaryMin) {
+        query = query.gte('salary_min', parseInt(filters.salaryMin))
+      }
+      
+      if (filters.salaryMax) {
+        query = query.lte('salary_max', parseInt(filters.salaryMax))
+      }
+      
+      const { count, error } = await query
+      
+      if (error) throw error
+      return count || 0
+    },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  })
+
   const { data: jobs, isLoading, error, refetch } = useQuery({
-    queryKey: ['jobs', JSON.stringify(filters)], // Use JSON.stringify for object dependency
+    queryKey: ['jobs', JSON.stringify(filters), currentPage],
     queryFn: async () => {
       let query = supabase
         .from('jobs')
@@ -98,7 +156,11 @@ export default function JobsPage() {
         query = query.lte('salary_max', parseInt(filters.salaryMax))
       }
       
-      const { data, error } = await query.limit(50)
+      // Add pagination
+      const from = (currentPage - 1) * JOBS_PER_PAGE
+      const to = from + JOBS_PER_PAGE - 1
+      
+      const { data, error } = await query.range(from, to)
       
       if (error) throw error
       return data as Job[]
@@ -106,6 +168,11 @@ export default function JobsPage() {
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filters])
 
   // Force refetch when filters change
   useEffect(() => {
@@ -129,6 +196,18 @@ export default function JobsPage() {
       salaryMin: '',
       salaryMax: ''
     })
+    setCurrentPage(1)
+  }
+
+  // Pagination calculations
+  const totalJobs = totalJobsData || 0
+  const totalPages = Math.ceil(totalJobs / JOBS_PER_PAGE)
+  const startJob = (currentPage - 1) * JOBS_PER_PAGE + 1
+  const endJob = Math.min(currentPage * JOBS_PER_PAGE, totalJobs)
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const activeFiltersCount = [
@@ -244,8 +323,13 @@ export default function JobsPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {isLoading ? 'Loading...' : `${jobs?.length || 0} jobs found`}
+                  {isLoading ? 'Loading...' : `${totalJobs} jobs found`}
                 </h2>
+                {!isLoading && totalJobs > 0 && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Showing {startJob}-{endJob} of {totalJobs} jobs
+                  </p>
+                )}
                 {filters.h1bSponsorship && (
                   <p className="text-sm text-blue-600 mt-1">
                     Showing only H1B sponsorship available positions
@@ -278,11 +362,97 @@ export default function JobsPage() {
                 <p className="text-gray-600">Error loading jobs. Please try again.</p>
               </div>
             ) : jobs && jobs.length > 0 ? (
-              <div className="space-y-4">
-                {jobs.map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-              </div>
+              <>
+                <div className="space-y-4">
+                  {jobs.map((job) => (
+                    <JobCard key={job.id} job={job} />
+                  ))}
+                </div>
+                
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-8">
+                    <div className="flex flex-1 justify-between sm:hidden">
+                      <Button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                    <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm text-gray-700">
+                          Showing <span className="font-medium">{startJob}</span> to{' '}
+                          <span className="font-medium">{endJob}</span> of{' '}
+                          <span className="font-medium">{totalJobs}</span> results
+                        </p>
+                      </div>
+                      <div>
+                        <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                          <Button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            variant="outline"
+                            size="sm"
+                            className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                          >
+                            <span className="sr-only">Previous</span>
+                            <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                          </Button>
+                          
+                          {/* Page numbers */}
+                          {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                            let pageNumber
+                            if (totalPages <= 7) {
+                              pageNumber = i + 1
+                            } else if (currentPage <= 4) {
+                              pageNumber = i + 1
+                            } else if (currentPage >= totalPages - 3) {
+                              pageNumber = totalPages - 6 + i
+                            } else {
+                              pageNumber = currentPage - 3 + i
+                            }
+                            
+                            return (
+                              <Button
+                                key={pageNumber}
+                                onClick={() => handlePageChange(pageNumber)}
+                                variant={currentPage === pageNumber ? "default" : "outline"}
+                                size="sm"
+                                className="relative inline-flex items-center px-4 py-2 text-sm font-semibold"
+                              >
+                                {pageNumber}
+                              </Button>
+                            )
+                          })}
+                          
+                          <Button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            variant="outline"
+                            size="sm"
+                            className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                          >
+                            <span className="sr-only">Next</span>
+                            <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                          </Button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-12">
                 <Building2 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
