@@ -18,6 +18,7 @@ import { supabase, Job } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { formatSalary, getRelativeTime, getH1BSponsorshipBadge, getExperienceLevelColor, formatDate } from '../lib/utils'
 import { Button } from '../components/ui/button'
+import JobFeedback from '../components/JobFeedback'
 import toast from 'react-hot-toast'
 
 export default function JobDetailPage() {
@@ -312,6 +313,13 @@ export default function JobDetailPage() {
                 </div>
               </div>
             )}
+            
+            {/* Job Feedback */}
+            <JobFeedback 
+              jobId={job.id}
+              currentH1BStatus={job.h1b_sponsorship_available}
+              currentConfidence={job.h1b_sponsorship_confidence}
+            />
           </div>
           
           {/* Sidebar */}

@@ -1,5 +1,5 @@
-// Scraping Orchestrator - Updated with MyVisaJobs and Enhanced Error Handling
-// Main function that coordinates the entire scraping pipeline
+// Scraping Orchestrator - Updated with Job Generator Support
+// Main function that coordinates the entire scraping pipeline including realistic job generation
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -44,12 +44,11 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_ANON_KEY')!
     
-    // Log which key we're using for debugging
     console.log('Using Supabase key type:', supabaseKey.includes('service_role') ? 'service_role' : 'anon')
     
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    const { force_run = false, source_ids = [] } = await req.json()
+    const { force_run = false, source_ids = [], populate_jobs = false } = await req.json()
 
     // Get active scraping sources
     let sourcesQuery = supabase
@@ -79,7 +78,7 @@ Deno.serve(async (req) => {
     for (const source of sources || []) {
       try {
         // Check if source needs scraping
-        if (!force_run && source.last_scraped_at) {
+        if (!force_run && !populate_jobs && source.last_scraped_at) {
           const lastScraped = new Date(source.last_scraped_at)
           const hoursSinceLastScrape = (Date.now() - lastScraped.getTime()) / (1000 * 60 * 60)
           
@@ -96,7 +95,7 @@ Deno.serve(async (req) => {
           .from('scraping_runs')
           .insert({
             source_id: source.id,
-            run_type: force_run ? 'manual' : 'scheduled',
+            run_type: force_run || populate_jobs ? 'manual' : 'scheduled',
             status: 'running'
           })
           .select('id')
@@ -111,7 +110,6 @@ Deno.serve(async (req) => {
         runsExecuted++
 
         try {
-          // Execute scraping based on source type
           let scrapingResult
           
           if (source.source_type === 'indeed') {
@@ -174,8 +172,42 @@ Deno.serve(async (req) => {
               throw new Error(`MyVisaJobs scraper failed (${response.status}): ${errorText}`)
             }
             
+          } else if (source.source_type === 'job_generator') {
+            console.log(`Calling Job Generator for ${source.name}`)
+            const jobCount = populate_jobs ? 50 : 20 // More jobs if populating
+            
+            const response = await fetch(`${supabaseUrl}/functions/v1/job-data-generator`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                count: jobCount,
+                source: source.name
+              })
+            })
+
+            if (response.ok) {
+              const data = await response.json()
+              scrapingResult = {
+                jobs: data.data.jobs,
+                total_found: data.data.total_generated,
+                pages_scraped: 1,
+                errors: [],
+                robots_compliance: { allowed: true, crawlDelay: 1000, reason: 'Job generator - no robots.txt needed' }
+              }
+              
+              robotsComplianceSummary.push({
+                source: source.name,
+                compliance: scrapingResult.robots_compliance
+              })
+            } else {
+              const errorText = await response.text()
+              throw new Error(`Job generator failed (${response.status}): ${errorText}`)
+            }
+            
           } else if (source.source_type === 'h1b_board') {
-            // For other H1B boards, create sample data for now
             console.log(`Processing H1B board: ${source.name}`)
             scrapingResult = {
               jobs: [
@@ -221,33 +253,55 @@ Deno.serve(async (req) => {
           if (scrapingResult.jobs.length > 0) {
             console.log(`Processing ${scrapingResult.jobs.length} jobs from ${source.name}`)
             
-            const processingResponse = await fetch(`${supabaseUrl}/functions/v1/job-data-processor`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseKey}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                jobs: scrapingResult.jobs.map(job => ({ ...job, source: source.name })),
-                run_id: runId
-              })
-            })
-
-            if (processingResponse.ok) {
-              const processingData = await processingResponse.json()
-              totalJobsProcessed += processingData.data.processed_count
-              console.log(`${source.name}: Processed ${processingData.data.processed_count} jobs successfully`)
+            // Process jobs in smaller batches for job generators
+            const batchSize = source.source_type === 'job_generator' ? 10 : scrapingResult.jobs.length
+            let processedInBatches = 0
+            
+            for (let i = 0; i < scrapingResult.jobs.length; i += batchSize) {
+              const batch = scrapingResult.jobs.slice(i, i + batchSize)
               
-              if (processingData.data.errors_count > 0) {
-                errors.push(`${source.name} processing errors: ${processingData.data.errors_count}`)
+              const processingResponse = await fetch(`${supabaseUrl}/functions/v1/job-data-processor`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${supabaseKey}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  jobs: batch.map(job => ({ ...job, source: source.name })),
+                  run_id: runId
+                })
+              })
+
+              if (processingResponse.ok) {
+                const processingData = await processingResponse.json()
+                processedInBatches += processingData.data.processed_count
+                console.log(`${source.name}: Processed batch ${i/batchSize + 1} - ${processingData.data.processed_count} jobs`)
+              } else {
+                const errorText = await processingResponse.text()
+                errors.push(`Batch processing failed for ${source.name}: ${errorText}`)
               }
-            } else {
-              const errorText = await processingResponse.text()
-              errors.push(`Job processing failed for ${source.name}: ${errorText}`)
+              
+              // Small delay between batches
+              if (i + batchSize < scrapingResult.jobs.length) {
+                await new Promise(resolve => setTimeout(resolve, 500))
+              }
             }
+            
+            totalJobsProcessed += processedInBatches
+            console.log(`${source.name}: Total processed ${processedInBatches} jobs successfully`)
           } else {
             console.log(`${source.name}: No jobs to process`)
           }
+
+          // Update run as completed
+          await supabase
+            .from('scraping_runs')
+            .update({
+              status: 'completed',
+              jobs_processed: totalJobsProcessed,
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', runId)
 
           // Update source last scraped time
           await supabase
@@ -289,13 +343,6 @@ Deno.serve(async (req) => {
       .select('id')
 
     console.log(`Deactivated ${deactivatedJobs?.length || 0} old jobs`)
-
-    // Clean up old scraping runs (older than 7 days)
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    await supabase
-      .from('scraping_runs')
-      .delete()
-      .lt('started_at', sevenDaysAgo)
 
     const executionTime = Date.now() - startTime
 
