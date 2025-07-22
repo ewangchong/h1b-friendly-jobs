@@ -18,6 +18,10 @@ export function formatSalary(min?: number, max?: number, currency = 'USD') {
   }
   
   if (min && max) {
+    // If min and max are the same, just show the single value
+    if (min === max) {
+      return formatNumber(min)
+    }
     return `${formatNumber(min)} - ${formatNumber(max)}`
   } else if (min) {
     return `${formatNumber(min)}+`

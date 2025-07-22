@@ -309,7 +309,7 @@ export default function CompanyDetailPage() {
                     </div>
                     <div className="bg-purple-50 rounded-lg p-4 text-center">
                       <div className="text-2xl font-bold text-purple-600 mb-1">
-                        {avgWage > 0 ? formatSalary(avgWage, avgWage).replace('$', '$').replace(' - $', '') : 'N/A'}
+                        {avgWage > 0 ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(avgWage) : 'N/A'}
                       </div>
                       <div className="text-sm text-gray-600">Avg. Wage</div>
                     </div>
