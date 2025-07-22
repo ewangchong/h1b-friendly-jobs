@@ -57,24 +57,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
       options: {
+        data: {
+          full_name: fullName || ''
+        },
         emailRedirectTo: `${window.location.protocol}//${window.location.host}/auth/callback`
       }
     })
 
-    // If signup is successful and user is created, create profile
-    if (data.user && !error) {
-      try {
-        await supabase.from('profiles').insert({
-          user_id: data.user.id,
-          email: email,
-          full_name: fullName || '',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-      } catch (profileError) {
-        console.error('Error creating profile:', profileError)
-      }
-    }
+    // The database trigger will automatically create the profile
+    // No need to manually create profile here
 
     return { data, error }
   }

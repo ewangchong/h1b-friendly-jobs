@@ -25,26 +25,38 @@ export default function JobCard({ job, showSaveButton = true, isSaved = false }:
     mutationFn: async () => {
       if (!user) throw new Error('Must be logged in to save jobs')
       
+      // Get current auth status to ensure user is still authenticated
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !currentUser) {
+        throw new Error('Authentication expired. Please sign in again.')
+      }
+      
       if (isBookmarked) {
         // Remove from saved jobs
         const { error } = await supabase
           .from('saved_jobs')
           .delete()
-          .eq('user_id', user.id)
+          .eq('user_id', currentUser.id)
           .eq('job_id', job.id)
         
-        if (error) throw error
+        if (error) throw new Error(`Failed to remove job: ${error.message}`)
       } else {
         // Add to saved jobs
         const { error } = await supabase
           .from('saved_jobs')
           .insert({
-            user_id: user.id,
+            user_id: currentUser.id,
             job_id: job.id,
             saved_at: new Date().toISOString()
           })
         
-        if (error) throw error
+        if (error) {
+          if (error.code === '23505') { // Duplicate key error
+            throw new Error('Job is already saved')
+          }
+          throw new Error(`Failed to save job: ${error.message}`)
+        }
       }
     },
     onSuccess: () => {
@@ -53,7 +65,14 @@ export default function JobCard({ job, showSaveButton = true, isSaved = false }:
       toast.success(isBookmarked ? 'Job removed from saved jobs' : 'Job saved successfully')
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to save job')
+      if (error.message.includes('Authentication expired')) {
+        toast.error('Please sign in again to save jobs')
+        // Optionally could redirect to login here
+      } else if (error.message.includes('Job is already saved')) {
+        toast.error('This job is already in your saved jobs')
+      } else {
+        toast.error(error.message || 'Failed to save job')
+      }
     }
   })
 

@@ -52,8 +52,8 @@ export default function JobsPage() {
     setSearchParams(params)
   }, [filters, setSearchParams])
 
-  const { data: jobs, isLoading, error } = useQuery({
-    queryKey: ['jobs', filters],
+  const { data: jobs, isLoading, error, refetch } = useQuery({
+    queryKey: ['jobs', JSON.stringify(filters)], // Use JSON.stringify for object dependency
     queryFn: async () => {
       let query = supabase
         .from('jobs')
@@ -103,7 +103,14 @@ export default function JobsPage() {
       if (error) throw error
       return data as Job[]
     },
+    refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   })
+
+  // Force refetch when filters change
+  useEffect(() => {
+    refetch()
+  }, [filters, refetch])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

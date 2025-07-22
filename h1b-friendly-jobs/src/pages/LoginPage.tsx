@@ -23,13 +23,25 @@ export default function LoginPage() {
     try {
       const { error } = await signIn(email, password)
       if (error) {
-        toast.error(error.message)
+        // Handle specific error types for better user experience
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password. Please check your credentials and try again.')
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Please check your email and click the verification link before signing in.')
+        } else if (error.message.includes('Too many requests')) {
+          toast.error('Too many login attempts. Please wait a few minutes and try again.')
+        } else if (error.message.includes('User not found')) {
+          toast.error('No account found with this email address. Please sign up first.')
+        } else {
+          toast.error(`Login failed: ${error.message}`)
+        }
       } else {
-        toast.success('Signed in successfully')
+        toast.success('Signed in successfully!')
         navigate(from, { replace: true })
       }
-    } catch (error) {
-      toast.error('An unexpected error occurred')
+    } catch (error: any) {
+      console.error('Login error:', error)
+      toast.error('An unexpected error occurred. Please try again later.')
     } finally {
       setIsLoading(false)
     }
