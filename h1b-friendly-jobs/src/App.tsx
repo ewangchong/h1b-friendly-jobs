@@ -19,8 +19,8 @@ import './App.css'
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <div className="min-h-screen bg-gray-50 flex flex-col">
           <Header />
           <main className="flex-1">
@@ -42,8 +42,8 @@ function App() {
           <Footer />
         </div>
         <Toaster position="top-right" />
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   )
 }
 
