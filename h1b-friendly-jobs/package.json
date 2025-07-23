@@ -4,18 +4,18 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "vite --config config/vite.config.ts",
+    "build": "tsc -b && vite build --config config/vite.config.ts",
     "build:prod": "NODE_ENV=production npm run build",
-    "lint": "eslint .",
-    "preview": "vite preview",
+    "lint": "eslint . --config config/eslint.config.js",
+    "preview": "vite preview --config config/vite.config.ts",
     "install:npm": "npm install",
     "install:pnpm": "pnpm install",
     "dev:npm": "npm run dev",
     "dev:pnpm": "pnpm run dev",
     "deploy:amplify": "npm run build:prod && echo 'Push to GitHub to trigger Amplify deployment'",
-    "deploy:s3": "npm run build:prod && ./deploy-aws.sh s3",
-    "deploy:aws": "./deploy-aws.sh"
+    "deploy:s3": "npm run build:prod && ./scripts/deploy-aws.sh s3",
+    "deploy:aws": "./scripts/deploy-aws.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

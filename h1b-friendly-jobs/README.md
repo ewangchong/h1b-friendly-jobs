@@ -20,34 +20,30 @@
 
 ## 📁 Repository Structure
 
+**📋 [View Detailed Folder Structure Guide](FOLDER_STRUCTURE.md)**
+
 ```
-h1b-friendly-jobs/
-├── 📁 src/                    # Frontend React application source code
-│   ├── 📁 components/         # Reusable React components
-│   │   ├── 📁 admin/          # Admin panel components
-│   │   └── 📁 ui/             # UI library components (shadcn/ui)
-│   ├── 📁 pages/              # Application pages/routes
-│   ├── 📁 lib/                # Utility libraries and configurations
-│   ├── 📁 hooks/              # Custom React hooks
-│   └── 📁 contexts/           # React context providers
-├── 📁 public/                 # Static assets (favicon, images, etc.)
-├── 📁 docs/                   # Project documentation
-├── 📁 supabase/               # Backend database and serverless functions
-│   ├── 📁 tables/             # Database table schemas
-│   ├── 📁 migrations/         # Database migration files
-│   ├── 📁 functions/          # Edge functions (serverless backend)
-│   └── 📁 cron_jobs/          # Scheduled job configurations
-├── 📁 dist/                   # Production build output (auto-generated)
-├── 📁 node_modules/           # Dependencies (auto-generated)
-├── 📄 package.json            # Project dependencies and scripts
-├── 📄 vite.config.ts          # Vite build tool configuration
-├── 📄 tailwind.config.js      # Tailwind CSS configuration
-├── 📄 tsconfig.json           # TypeScript configuration
-├── 📄 .env.local.example      # Environment variables template
-├── 📄 .gitignore              # Git ignore rules
-├── 📄 amplify.yml             # AWS Amplify deployment configuration
-├── 📄 cloudformation-template.yaml # AWS infrastructure template
-└── 📄 deploy-aws.sh           # AWS deployment script
+h1b-friendly-jobs/                 # 🏠 Project Root
+├── 📁 src/                        # 🎨 Frontend Source Code
+│   ├── components/ pages/ lib/    # React components, routes, utilities
+│   ├── hooks/ contexts/           # Custom hooks, context providers
+├── 📁 config/                     # ⚙️ Configuration Files
+│   ├── vite.config.ts            # Build tool configuration
+│   ├── tailwind.config.js        # Tailwind CSS config
+│   ├── tsconfig*.json            # TypeScript configurations
+│   └── eslint.config.js          # Linting rules
+├── 📁 scripts/                   # 🚀 Deployment & Setup Scripts
+│   ├── deploy-aws.sh             # AWS deployment automation
+│   ├── amplify.yml               # AWS Amplify config
+│   └── setup-local.sh            # Environment setup
+├── 📁 docs/                      # 📚 Documentation
+├── 📁 supabase/                  # 🗄️ Backend & Database
+│   ├── tables/ migrations/       # Database schemas & migrations
+│   ├── functions/                # Serverless edge functions
+│   └── cron_jobs/                # Scheduled job configurations
+├── 📁 public/                    # 🌐 Static assets
+├── 📁 dist/                      # 📦 Build output (auto-generated)
+└── 📄 Core files (package.json, README.md, etc.)
 ```
 
 ## 🚀 Quick Start

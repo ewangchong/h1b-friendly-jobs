@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2020",
     "useDefineForClassFields": true,
     "lib": [
@@ -11,10 +11,10 @@
     "module": "ESNext",
     "skipLibCheck": true,
     /* Tailwind stuff */
-    "baseUrl": ".",
+    "baseUrl": "..",
     "paths": {
       "@/*": [
-        "./src/*"
+        "src/*"
       ]
     },
     /* Bundler mode */
@@ -37,6 +37,6 @@
     "noUncheckedSideEffectImports": false
   },
   "include": [
-    "src"
+    "../src"
   ]
 }
