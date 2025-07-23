@@ -40,12 +40,12 @@ A comprehensive H1B visa-friendly job search platform built with React, TypeScri
 - **Quality Control** - Deduplication and relevance filtering
 - **Anti-Bot Measures** - User agent rotation, header spoofing, timing variation
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Mac/Local Development)
 
 ### Prerequisites
-- Node.js 18+ 
-- pnpm (recommended) or npm
-- Supabase account
+- **Node.js 18+** (Download from [nodejs.org](https://nodejs.org/))
+- **Package Manager**: npm (comes with Node.js) or pnpm
+- **Git** (Pre-installed on Mac)
 
 ### Installation
 
@@ -55,22 +55,113 @@ git clone https://github.com/ewangchong/h1b-friendly-jobs.git
 cd h1b-friendly-jobs
 ```
 
-2. **Install dependencies**
+2. **Install dependencies** (Choose one method)
+
+**Using npm (recommended for Mac):**
 ```bash
+npm install
+```
+
+**Using pnpm (alternative):**
+```bash
+# Install pnpm first if you don't have it
+npm install -g pnpm
 pnpm install
 ```
 
 3. **Environment Setup**
-Create `.env.local` file:
-```env
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```bash
+# Copy the example environment file
+cp .env.local.example .env.local
 ```
+The environment variables are pre-configured and ready to use!
 
 4. **Start development server**
+
+**Using npm:**
+```bash
+npm run dev
+```
+
+**Using pnpm:**
 ```bash
 pnpm dev
 ```
+
+5. **Open your browser**
+Visit: [http://localhost:5173](http://localhost:5173)
+
+### 🎉 You're Ready!
+The H1B jobs platform should now be running locally with:
+- ✅ 161 real H1B job listings
+- ✅ Working job search and filters
+- ✅ Admin dashboard (login with ewangchong@gmail.com)
+- ✅ All features fully functional
+
+### ⚡ Quick Setup (Alternative)
+
+For an automated setup, run the setup script:
+```bash
+chmod +x setup-local.sh
+./setup-local.sh
+```
+This will automatically:
+- Check Node.js installation
+- Set up environment variables
+- Install dependencies
+- Provide next steps
+
+## 🔧 Troubleshooting (Mac)
+
+### Common Issues & Solutions
+
+**Problem: "command not found: npm"**
+```bash
+# Install Node.js from https://nodejs.org/
+# Or using Homebrew:
+brew install node
+```
+
+**Problem: Port 5173 already in use**
+```bash
+# Kill the process using the port
+sudo lsof -ti:5173 | xargs kill -9
+# Or start on a different port
+npm run dev -- --port 3000
+```
+
+**Problem: Permission errors during npm install**
+```bash
+# Fix npm permissions (don't use sudo with npm)
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**Problem: TypeScript errors**
+```bash
+# Clear cache and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**Problem: "Cannot find module" errors**
+```bash
+# Ensure you're in the correct directory
+cd h1b-friendly-jobs
+# Try cleaning and reinstalling
+npm ci
+```
+
+### Development Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run preview` | Preview production build |
+| `npm run lint` | Run ESLint |
 
 ## 📁 Project Structure
 

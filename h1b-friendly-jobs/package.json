@@ -1,14 +1,18 @@
 {
-  "name": "react_repo",
+  "name": "h1b-friendly-jobs",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "yes | pnpm install && vite",
-    "build": "yes | pnpm install && rm -rf node_modules/.vite-temp && tsc -b && vite build",
+    "dev": "vite",
+    "build": "tsc -b && vite build",
     "build:prod": "NODE_ENV=production npm run build",
-    "lint": "yes | pnpm install && eslint .",
-    "preview": "yes | pnpm install && vite preview",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "install:npm": "npm install",
+    "install:pnpm": "pnpm install",
+    "dev:npm": "npm run dev",
+    "dev:pnpm": "pnpm run dev",
     "deploy:amplify": "npm run build:prod && echo 'Push to GitHub to trigger Amplify deployment'",
     "deploy:s3": "npm run build:prod && ./deploy-aws.sh s3",
     "deploy:aws": "./deploy-aws.sh"
