@@ -92,7 +92,7 @@ export default function JobFeedback({ jobId, currentH1BStatus, currentConfidence
       if (!session) return null
 
       const response = await fetch(
-        `https://qogxbfgkrtullrvjgrrf.supabase.co/functions/v1/job-feedback-handler?job_id=${jobId}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feedback-handler?job_id=${jobId}`,
         {
           headers: {
             'Authorization': `Bearer ${session.access_token}`,
@@ -119,7 +119,7 @@ export default function JobFeedback({ jobId, currentH1BStatus, currentConfidence
       if (!session) throw new Error('No active session')
 
       const response = await fetch(
-        'https://qogxbfgkrtullrvjgrrf.supabase.co/functions/v1/job-feedback-handler',
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/job-feedback-handler`,
         {
           method: 'POST',
           headers: {

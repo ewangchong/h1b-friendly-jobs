@@ -16,7 +16,7 @@
 
 ```bash
 # Service Role Key Retrieved:
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFvZ3hiZmdrcnR1bGxydmpncnJmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzA5NDUzNiwiZXhwIjoyMDY4NjcwNTM2fQ.JnMcYziqLmwPnkoPQs4o9Rqqj1t4c-7Anytf3aNstJ0
+[REDACTED_FOR_SECURITY - FULL_SERVICE_ROLE_KEY]
 
 # Test Result:
 ✅ All edge functions now working with proper authentication

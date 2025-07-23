@@ -9,7 +9,7 @@
 **Testing Complete:** Full end-to-end pipeline tested successfully  
 
 **Evidence:**
-- Service role key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...` (working)
+- Service role key: `[REDACTED_FOR_SECURITY]` (working)
 - Pipeline test: 3 runs executed, 1 job processed and saved to database
 - Execution time: 5.4 seconds for complete pipeline
 - No authentication errors in any component
