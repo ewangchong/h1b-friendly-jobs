@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { User, Mail, MapPin, Briefcase, Award, Save } from 'lucide-react'
+import { User, Mail, MapPin, Briefcase, Save, Edit3, CheckCircle } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
-import { supabase, Profile } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
 import { Button } from '../components/ui/button'
 import toast from 'react-hot-toast'
+import { Navigate } from 'react-router-dom'
 
-const EXPERIENCE_LEVELS = ['Entry', 'Mid', 'Senior', 'Executive']
-const VISA_STATUSES = [
-  'H1B',
-  'L1',
-  'F1 (Student)',
-  'OPT',
-  'CPT',
-  'Green Card Holder',
-  'US Citizen',
-  'Other'
-]
+interface UserProfile {
+  full_name: string
+  email: string
+  location: string
+  experience_level: string
+  preferred_industries: string[]
+  visa_status: string
+}
+
+const EXPERIENCE_LEVELS = ['Entry Level', 'Mid Level', 'Senior Level', 'Lead/Principal', 'Director+']
+const VISA_STATUSES = ['H1B', 'F1 OPT', 'F1 STEM OPT', 'Green Card', 'US Citizen', 'Other']
 const INDUSTRIES = [
   'Technology',
   'Finance',
@@ -28,107 +28,102 @@ const INDUSTRIES = [
   'Manufacturing',
   'Retail',
   'Real Estate',
-  'Energy',
-  'Government',
-  'Non-profit'
+  'Non-profit',
+  'Government'
 ]
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const queryClient = useQueryClient()
-  
-  const [formData, setFormData] = useState({
+  const [profile, setProfile] = useState<UserProfile>({
     full_name: '',
+    email: '',
     location: '',
     experience_level: '',
-    visa_status: '',
-    preferred_industries: [] as string[]
+    preferred_industries: [],
+    visa_status: ''
   })
+  const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
 
-  // Fetch user profile
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['profile', user?.id],
-    queryFn: async () => {
-      if (!user) return null
-      
+  useEffect(() => {
+    if (user) {
+      loadProfile()
+    }
+  }, [user])
+
+  const loadProfile = async () => {
+    try {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      
-      if (error) throw error
-      return data as Profile | null
-    },
-    enabled: !!user
-  })
+        .eq('user_id', user!.id)
+        .single()
 
-  // Update form data when profile loads
-  useEffect(() => {
-    if (profile) {
-      setFormData({
-        full_name: profile.full_name || '',
-        location: profile.location || '',
-        experience_level: profile.experience_level || '',
-        visa_status: profile.visa_status || '',
-        preferred_industries: profile.preferred_industries || []
-      })
-    }
-  }, [profile])
-
-  const updateProfileMutation = useMutation({
-    mutationFn: async (updates: typeof formData) => {
-      if (!user) throw new Error('Must be logged in to update profile')
-      
-      const profileData = {
-        user_id: user.id,
-        email: user.email || '',
-        ...updates,
-        updated_at: new Date().toISOString()
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        throw error
       }
-      
-      if (profile) {
-        // Update existing profile
-        const { data, error } = await supabase
-          .from('profiles')
-          .update(profileData)
-          .eq('user_id', user.id)
-          .select()
-          .maybeSingle()
-        
-        if (error) throw error
-        return data
+
+      if (data) {
+        setProfile({
+          full_name: data.full_name || '',
+          email: data.email || user!.email || '',
+          location: data.location || '',
+          experience_level: data.experience_level || '',
+          preferred_industries: data.preferred_industries || [],
+          visa_status: data.visa_status || ''
+        })
       } else {
-        // Create new profile
-        const { data, error } = await supabase
-          .from('profiles')
-          .insert({
-            ...profileData,
-            created_at: new Date().toISOString()
-          })
-          .select()
-          .maybeSingle()
-        
-        if (error) throw error
-        return data
+        // Create profile if it doesn't exist
+        setProfile(prev => ({
+          ...prev,
+          email: user!.email || ''
+        }))
+        setIsEditing(true)
       }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
-      toast.success('Profile updated successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to update profile')
+    } catch (error: any) {
+      console.error('Error loading profile:', error)
+      toast.error('Failed to load profile')
+    } finally {
+      setIsLoading(false)
     }
-  })
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    updateProfileMutation.mutate(formData)
   }
 
-  const handleIndustryChange = (industry: string) => {
-    setFormData(prev => ({
+  const handleSave = async () => {
+    if (!profile.full_name.trim()) {
+      toast.error('Please enter your full name')
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          user_id: user!.id,
+          email: user!.email,
+          full_name: profile.full_name,
+          location: profile.location,
+          experience_level: profile.experience_level,
+          preferred_industries: profile.preferred_industries,
+          visa_status: profile.visa_status,
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      toast.success('Profile updated successfully!')
+      setIsEditing(false)
+    } catch (error: any) {
+      console.error('Error saving profile:', error)
+      toast.error('Failed to save profile')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleIndustryToggle = (industry: string) => {
+    setProfile(prev => ({
       ...prev,
       preferred_industries: prev.preferred_industries.includes(industry)
         ? prev.preferred_industries.filter(i => i !== industry)
@@ -137,170 +132,221 @@ export default function ProfilePage() {
   }
 
   if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
-          <p className="text-gray-600">Please sign in to view your profile.</p>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="bg-white rounded-lg p-8">
+              <div className="space-y-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-12 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 p-8">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Profile Settings</h1>
-          <p className="text-gray-600">
-            Manage your profile information to get better job recommendations.
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+            <p className="text-gray-600 mt-2">Manage your account information and job preferences</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            {!isEditing ? (
+              <Button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center space-x-2"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>Edit Profile</span>
+              </Button>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditing(false)
+                    loadProfile() // Reload to cancel changes
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center space-x-2"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Profile Form */}
-        <div className="bg-white rounded-lg shadow-sm">
-          <div className="px-8 py-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Personal Information</h2>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Basic Information */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <User className="w-5 h-5 mr-2" />
+                Basic Information
+              </h2>
+
               <div>
-                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="w-4 h-4 inline mr-1" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Full Name
                 </label>
-                <input
-                  type="text"
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="Enter your full name"
-                />
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.full_name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter your full name"
+                  />
+                ) : (
+                  <p className="text-gray-900">{profile.full_name || 'Not specified'}</p>
+                )}
               </div>
-              
+
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="w-4 h-4 inline mr-1" />
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Mail className="w-4 h-4 mr-1" />
                   Email Address
                 </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={user.email || ''}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 cursor-not-allowed"
-                />
-                <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                <p className="text-gray-600 text-sm">Email cannot be changed from profile</p>
+                <p className="text-gray-900">{profile.email}</p>
               </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="w-4 h-4 inline mr-1" />
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <MapPin className="w-4 h-4 mr-1" />
                   Location
                 </label>
-                <input
-                  type="text"
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  placeholder="City, State or Country"
-                />
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={profile.location}
+                    onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="City, State (e.g., San Francisco, CA)"
+                  />
+                ) : (
+                  <p className="text-gray-900">{profile.location || 'Not specified'}</p>
+                )}
               </div>
-              
+            </div>
+
+            {/* Professional Information */}
+            <div className="space-y-6">
+              <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+                <Briefcase className="w-5 h-5 mr-2" />
+                Professional Information
+              </h2>
+
               <div>
-                <label htmlFor="visa_status" className="block text-sm font-medium text-gray-700 mb-2">
-                  <Award className="w-4 h-4 inline mr-1" />
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Experience Level
+                </label>
+                {isEditing ? (
+                  <select
+                    value={profile.experience_level}
+                    onChange={(e) => setProfile(prev => ({ ...prev, experience_level: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select experience level</option>
+                    {EXPERIENCE_LEVELS.map(level => (
+                      <option key={level} value={level}>{level}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-gray-900">{profile.experience_level || 'Not specified'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Visa Status
                 </label>
-                <select
-                  id="visa_status"
-                  value={formData.visa_status}
-                  onChange={(e) => setFormData(prev => ({ ...prev, visa_status: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                >
-                  <option value="">Select visa status</option>
-                  {VISA_STATUSES.map(status => (
-                    <option key={status} value={status}>{status}</option>
-                  ))}
-                </select>
+                {isEditing ? (
+                  <select
+                    value={profile.visa_status}
+                    onChange={(e) => setProfile(prev => ({ ...prev, visa_status: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select visa status</option>
+                    {VISA_STATUSES.map(status => (
+                      <option key={status} value={status}>{status}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-gray-900">{profile.visa_status || 'Not specified'}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Preferred Industries
+                </label>
+                {isEditing ? (
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                    {INDUSTRIES.map(industry => (
+                      <label key={industry} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={profile.preferred_industries.includes(industry)}
+                          onChange={() => handleIndustryToggle(industry)}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm text-gray-700">{industry}</span>
+                      </label>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {profile.preferred_industries.length > 0 ? (
+                      profile.preferred_industries.map(industry => (
+                        <span
+                          key={industry}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                        >
+                          {industry}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="text-gray-500">No preferences selected</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-            
-            <div>
-              <label htmlFor="experience_level" className="block text-sm font-medium text-gray-700 mb-2">
-                <Briefcase className="w-4 h-4 inline mr-1" />
-                Experience Level
-              </label>
-              <select
-                id="experience_level"
-                value={formData.experience_level}
-                onChange={(e) => setFormData(prev => ({ ...prev, experience_level: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              >
-                <option value="">Select experience level</option>
-                {EXPERIENCE_LEVELS.map(level => (
-                  <option key={level} value={level}>{level}</option>
-                ))}
-              </select>
-            </div>
-            
-            {/* Preferred Industries */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Preferred Industries
-              </label>
-              <p className="text-sm text-gray-600 mb-3">
-                Select industries you're interested in working in (optional)
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {INDUSTRIES.map(industry => (
-                  <label key={industry} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.preferred_industries.includes(industry)}
-                      onChange={() => handleIndustryChange(industry)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
-                    />
-                    <span className="text-sm text-gray-700">{industry}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Submit Button */}
-            <div className="pt-6 border-t border-gray-200">
-              <Button
-                type="submit"
-                disabled={updateProfileMutation.isPending || isLoading}
-                className="flex items-center space-x-2"
-              >
-                <Save className="w-4 h-4" />
-                <span>
-                  {updateProfileMutation.isPending ? 'Saving...' : 'Save Profile'}
+          </div>
+
+          {/* Success Message */}
+          {!isEditing && profile.full_name && (
+            <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-md">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                <span className="text-sm text-green-700">
+                  Your profile is complete! This helps us provide better job recommendations.
                 </span>
-              </Button>
+              </div>
             </div>
-          </form>
-        </div>
-        
-        {/* Additional Info */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-2">
-            Why do we ask for this information?
-          </h3>
-          <ul className="text-blue-800 text-sm space-y-1">
-            <li>• To provide personalized job recommendations based on your experience and preferences</li>
-            <li>• To help you find companies that are more likely to sponsor your visa status</li>
-            <li>• To filter opportunities that match your location preferences</li>
-            <li>• All information is kept private and secure</li>
-          </ul>
+          )}
         </div>
       </div>
     </div>
